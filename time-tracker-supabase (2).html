@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#3ecf8e">
+    <meta name="description" content="Cloud-basierte Zeiterfassung mit Supabase">
+    <title>Zeit-Tracker (Supabase Cloud)</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #3ecf8e 0%, #2d9f6f 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .sync-status {
+            display: inline-block;
+            padding: 8px 15px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 20px;
+            margin-top: 10px;
+            font-size: 0.9em;
+        }
+
+        .sync-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+
+        .sync-connected {
+            background: #11998e;
+            animation: pulse 2s infinite;
+        }
+
+        .sync-disconnected {
+            background: #ff4757;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .card h2 {
+            color: #3ecf8e;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }
+
+        .timer-display {
+            text-align: center;
+            margin: 30px 0;
+        }
+
+        .time {
+            font-size: 4em;
+            font-weight: bold;
+            color: #2d9f6f;
+            font-family: 'Courier New', monospace;
+        }
+
+        .project-select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #3ecf8e;
+            border-radius: 8px;
+            font-size: 16px;
+            margin-bottom: 15px;
+            background: white;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        button {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-start {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+        }
+
+        .btn-start:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(17, 153, 142, 0.4);
+        }
+
+        .btn-stop {
+            background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+            color: white;
+        }
+
+        .btn-stop:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(235, 51, 73, 0.4);
+        }
+
+        .btn-pause {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #333;
+            font-weight: bold;
+        }
+
+        .form-group input, .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .form-group input:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: #3ecf8e;
+        }
+
+        .entries-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .entry-item {
+            background: linear-gradient(135deg, #d4fc79 0%, #96e6a1 100%);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .entry-info h4 {
+            color: #2d9f6f;
+            margin-bottom: 5px;
+        }
+
+        .entry-info p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .entry-duration {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #2d9f6f;
+        }
+
+        .delete-btn {
+            background: #ff4757;
+            color: white;
+            padding: 8px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #3ecf8e 0%, #2d9f6f 100%);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            color: white;
+        }
+
+        .stat-card:nth-child(2) {
+            background: linear-gradient(135deg, #30cfd0 0%, #330867 100%);
+        }
+
+        .stat-card:nth-child(3) {
+            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+        }
+
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+
+        .full-width {
+            grid-column: 1 / -1;
+        }
+
+        .project-stats {
+            margin-top: 20px;
+        }
+
+        .project-bar {
+            margin-bottom: 15px;
+        }
+
+        .project-bar-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+
+        .project-bar-fill {
+            height: 25px;
+            border-radius: 12px;
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            padding-left: 10px;
+            color: white;
+            font-weight: bold;
+        }
+
+        .running-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            background: #11998e;
+            border-radius: 50%;
+            margin-left: 10px;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .export-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .cloud-badge {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: linear-gradient(135deg, #3ecf8e 0%, #2d9f6f 100%);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+
+        @media (max-width: 768px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: white;
+            font-size: 1.2em;
+        }
+
+        .loading-spinner {
+            border: 4px solid rgba(255,255,255,0.3);
+            border-top: 4px solid white;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div id="loadingScreen" class="loading">
+        <div class="loading-spinner"></div>
+        <p>Verbinde mit Supabase...</p>
+    </div>
+
+    <div id="app" style="display: none;">
+        <div class="container">
+            <div class="header">
+                <h1>⏱️ Zeit-Tracker (Supabase Edition)</h1>
+                <p>100% Kostenlos - Keine Zahlungsmethode nötig! 🎉</p>
+                <div class="sync-status">
+                    <span class="sync-indicator" id="syncIndicator"></span>
+                    <span id="syncStatus">Verbunden</span>
+                </div>
+            </div>
+
+            <div class="main-grid">
+                <!-- Timer Card -->
+                <div class="card" style="position: relative;">
+                    <div class="cloud-badge">☁️ Supabase</div>
+                    <h2>🎯 Aktiver Timer</h2>
+                    
+                    <!-- Projekt Management -->
+                    <div style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 10px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: bold; color: #333;">📁 Projekt erstellen</label>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="text" id="newProjectInput" class="project-select" placeholder="Neues Projekt eingeben..." style="display: inline-block; margin: 0; flex: 1;">
+                            <button class="btn-secondary" onclick="createNewProject()" style="padding: 12px 20px; white-space: nowrap;">➕ Erstellen</button>
+                        </div>
+                    </div>
+                    
+                    <label style="display: block; margin-bottom: 8px; font-weight: bold; color: #333;">Projekt auswählen</label>
+                    <select id="projectSelect" class="project-select">
+                        <option value="">-- Projekt wählen --</option>
+                    </select>
+                    
+                    <div class="timer-display">
+                        <div class="time" id="timerDisplay">00:00:00</div>
+                        <p id="currentProject" style="color: #666; margin-top: 10px;">Kein Projekt ausgewählt</p>
+                    </div>
+
+                    <div class="button-group">
+                        <button class="btn-start" id="startBtn" onclick="startTimer()">▶ Start</button>
+                        <button class="btn-pause" id="pauseBtn" onclick="pauseTimer()" style="display:none;">⏸ Pause</button>
+                        <button class="btn-stop" id="stopBtn" onclick="stopTimer()" disabled>⏹ Stop</button>
+                    </div>
+                </div>
+
+                <!-- Manual Entry Card -->
+                <div class="card">
+                    <h2>➕ Zeit nachträglich hinzufügen</h2>
+                    <div class="form-group">
+                        <label>Projekt</label>
+                        <select id="manualProjectSelect" class="project-select"></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Datum</label>
+                        <input type="date" id="manualDate">
+                    </div>
+                    <div class="form-group">
+                        <label>Startzeit</label>
+                        <input type="time" id="manualStartTime">
+                    </div>
+                    <div class="form-group">
+                        <label>Endzeit</label>
+                        <input type="time" id="manualEndTime">
+                    </div>
+                    <div class="form-group">
+                        <label>Beschreibung (optional)</label>
+                        <textarea id="manualDescription" rows="2" placeholder="Was hast du gemacht?"></textarea>
+                    </div>
+                    <button class="btn-secondary" onclick="addManualEntry()" style="width: 100%;">💾 Eintrag hinzufügen</button>
+                </div>
+            </div>
+
+            <!-- Statistics Card -->
+            <div class="card full-width">
+                <h2>📊 Statistiken</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value" id="totalHours">0h</div>
+                        <div class="stat-label">Gesamt Stunden</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="todayHours">0h</div>
+                        <div class="stat-label">Heute</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="weekHours">0h</div>
+                        <div class="stat-label">Diese Woche</div>
+                    </div>
+                </div>
+
+                <div class="project-stats" id="projectStats"></div>
+
+                <div class="export-buttons">
+                    <button class="btn-secondary" onclick="exportToCSV()">📥 Als CSV exportieren</button>
+                    <button class="btn-secondary" onclick="clearAllData()">🗑️ Alle Daten löschen</button>
+                </div>
+            </div>
+
+            <!-- Recent Entries Card -->
+            <div class="card full-width">
+                <h2>📝 Letzte Einträge</h2>
+                <div class="entries-list" id="entriesList"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Supabase SDK -->
+    <script type="module">
+        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/+esm'
+
+        // 🚀 HIER DEINE SUPABASE-CONFIG EINFÜGEN (aus Supabase Dashboard → Settings → API)
+        const SUPABASE_URL = 'https://cjqsbgceqqmsxcjzojsq.supabase.co'
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNqcXNiZ2NlcXFtc3hjanpvanNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQxMzcyNjUsImV4cCI6MjA3OTcxMzI2NX0.oD026B7XXxKWMRx0KPz1cULyy1m5GrpO5hlylFsPp2Y'
+
+        // Supabase initialisieren
+        let supabase;
+        try {
+            supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
+            console.log('✅ Mit Supabase verbunden!')
+            
+            // Test-Verbindung
+            const { data, error } = await supabase.from('projects').select('count')
+            if (error) {
+                console.error('Supabase Verbindungsfehler:', error)
+                alert('⚠️ Supabase-Verbindung fehlgeschlagen!\n\nBitte überprüfe:\n1. SUPABASE_URL ist korrekt\n2. SUPABASE_KEY ist korrekt\n3. Tabellen wurden erstellt\n\nFehler: ' + error.message)
+                updateSyncStatus(false)
+            } else {
+                console.log('✅ Supabase Tabellen erreichbar!')
+                updateSyncStatus(true)
+                hideLoading()
+            }
+        } catch (error) {
+            console.error('❌ Supabase Fehler:', error)
+            alert('Supabase-Verbindung fehlgeschlagen! Bitte überprüfe deine Konfiguration.\n\nFehler: ' + error.message)
+            updateSyncStatus(false)
+        }
+
+        // Mache Supabase global verfügbar
+        window.supabase = supabase
+
+        async function hideLoading() {
+            document.getElementById('loadingScreen').style.display = 'none'
+            document.getElementById('app').style.display = 'block'
+            
+            // Warte kurz damit das DOM vollständig geladen ist
+            await new Promise(resolve => setTimeout(resolve, 100))
+            
+            // Initialisierung starten
+            await init()
+        }
+
+        function updateSyncStatus(connected) {
+            const indicator = document.getElementById('syncIndicator')
+            const status = document.getElementById('syncStatus')
+            if (connected) {
+                indicator.className = 'sync-indicator sync-connected'
+                status.textContent = 'Verbunden mit Supabase'
+            } else {
+                indicator.className = 'sync-indicator sync-disconnected'
+                status.textContent = 'Verbindungsfehler'
+            }
+        }
+
+        // Echtzeit-Listener für Projekte - mit Callback
+        supabase
+            .channel('projects-channel')
+            .on('postgres_changes', 
+                { event: '*', schema: 'public', table: 'projects' },
+                (payload) => {
+                    console.log('Projekt geändert:', payload)
+                    if (window.updateProjectSelects) {
+                        window.updateProjectSelects()
+                    }
+                }
+            )
+            .subscribe()
+
+        // Echtzeit-Listener für Einträge - mit Callback
+        supabase
+            .channel('entries-channel')
+            .on('postgres_changes',
+                { event: '*', schema: 'public', table: 'entries' },
+                (payload) => {
+                    console.log('Eintrag geändert:', payload)
+                    if (window.updateEntries) {
+                        window.updateEntries()
+                    }
+                    if (window.updateStatistics) {
+                        window.updateStatistics()
+                    }
+                }
+            )
+            .subscribe()
+
+        window.updateSyncStatus = updateSyncStatus
+    </script>
+
+    <script>
+        let timerInterval = null
+        let startTime = null
+        let elapsedTime = 0
+        let isRunning = false
+        let isPaused = false
+        let currentProject = null
+
+        // Supabase-Funktionen
+        async function loadProjects() {
+            try {
+                const { data, error } = await window.supabase
+                    .from('projects')
+                    .select('name')
+                    .order('created_at', { ascending: true })
+                
+                if (error) {
+                    console.error('Fehler beim Laden der Projekte:', error)
+                    return []
+                }
+                
+                if (!data) {
+                    console.log('Keine Projekte gefunden')
+                    return []
+                }
+                
+                return data.map(p => p.name)
+            } catch (error) {
+                console.error('Exception beim Laden der Projekte:', error)
+                return []
+            }
+        }
+
+        async function saveProject(projectName) {
+            const { data, error } = await window.supabase
+                .from('projects')
+                .insert([{ name: projectName }])
+            
+            if (error) {
+                console.error('Fehler beim Speichern:', error)
+                throw error
+            }
+            
+            return data
+        }
+
+        async function loadEntries() {
+            const { data, error } = await window.supabase
+                .from('entries')
+                .select('*')
+                .order('start_time', { ascending: false })
+            
+            if (error) {
+                console.error('Fehler beim Laden der Einträge:', error)
+                return []
+            }
+            
+            return data
+        }
+
+        async function saveEntry(entry) {
+            const { data, error } = await window.supabase
+                .from('entries')
+                .insert([{
+                    project: entry.project,
+                    start_time: entry.startTime.toISOString(),
+                    end_time: entry.endTime.toISOString(),
+                    duration: entry.duration,
+                    description: entry.description || ''
+                }])
+            
+            if (error) {
+                console.error('Fehler beim Speichern:', error)
+                throw error
+            }
+            
+            return data
+        }
+
+        async function deleteEntry(entryId) {
+            const { error } = await window.supabase
+                .from('entries')
+                .delete()
+                .eq('id', entryId)
+            
+            if (error) {
+                console.error('Fehler beim Löschen:', error)
+                throw error
+            }
+        }
+
+        // Initialize
+        async function init() {
+            console.log('🚀 Initialisierung gestartet...')
+            
+            try {
+                // Set today's date as default
+                const dateInput = document.getElementById('manualDate')
+                if (dateInput) {
+                    dateInput.valueAsDate = new Date()
+                    console.log('✅ Datum gesetzt')
+                }
+                
+                // Load projects first
+                console.log('📁 Lade Projekte...')
+                await updateProjectSelects()
+                
+                // Then load entries and statistics
+                console.log('📊 Lade Einträge und Statistiken...')
+                await updateEntries()
+                await updateStatistics()
+                
+                console.log('✅ Initialisierung abgeschlossen!')
+                
+                // Enter key für Projekt erstellen
+                const newProjectInput = document.getElementById('newProjectInput')
+                if (newProjectInput) {
+                    newProjectInput.addEventListener('keypress', function(e) {
+                        if (e.key === 'Enter') {
+                            createNewProject()
+                        }
+                    })
+                    console.log('✅ Enter-Listener registriert')
+                }
+            } catch (error) {
+                console.error('❌ Fehler bei Initialisierung:', error)
+            }
+        }
+
+        // Mache Funktionen global verfügbar
+        window.init = init
+        window.updateProjectSelects = updateProjectSelects
+        window.updateEntries = updateEntries
+        window.updateStatistics = updateStatistics
+
+        async function updateProjectSelects() {
+            try {
+                const projects = await loadProjects()
+                const projectSelect = document.getElementById('projectSelect')
+                const manualProjectSelect = document.getElementById('manualProjectSelect')
+                
+                if (!projectSelect || !manualProjectSelect) {
+                    console.error('Dropdown-Elemente nicht gefunden')
+                    return
+                }
+                
+                // Clear existing options
+                projectSelect.innerHTML = '<option value="">-- Projekt wählen --</option>'
+                manualProjectSelect.innerHTML = '<option value="">-- Projekt wählen --</option>'
+                
+                console.log('Geladene Projekte:', projects)
+                
+                // Add projects to dropdowns
+                projects.forEach(project => {
+                    const option1 = document.createElement('option')
+                    option1.value = project
+                    option1.textContent = project
+                    projectSelect.appendChild(option1)
+                    
+                    const option2 = document.createElement('option')
+                    option2.value = project
+                    option2.textContent = project
+                    manualProjectSelect.appendChild(option2)
+                })
+                
+                console.log('Dropdowns aktualisiert:', projects.length, 'Projekte')
+            } catch (error) {
+                console.error('Fehler beim Aktualisieren der Dropdowns:', error)
+            }
+        }
+
+        async function createNewProject() {
+            const input = document.getElementById('newProjectInput')
+            const projectName = input.value.trim()
+            
+            if (projectName === '') {
+                alert('Bitte gib einen Projektnamen ein!')
+                return
+            }
+            
+            const projects = await loadProjects()
+            
+            if (projects.includes(projectName)) {
+                alert('Dieses Projekt existiert bereits!')
+                return
+            }
+            
+            try {
+                console.log('💾 Speichere neues Projekt:', projectName)
+                await saveProject(projectName)
+                input.value = ''
+                
+                // Warte kurz und lade dann Projekte neu
+                await new Promise(resolve => setTimeout(resolve, 300))
+                console.log('🔄 Lade Projekte neu...')
+                await updateProjectSelects()
+                
+                // Wähle das neue Projekt aus
+                const projectSelect = document.getElementById('projectSelect')
+                if (projectSelect) {
+                    projectSelect.value = projectName
+                    console.log('✅ Projekt ausgewählt:', projectName)
+                }
+                
+                alert('✅ Projekt "' + projectName + '" wurde in Supabase gespeichert!')
+            } catch (error) {
+                console.error('Fehler beim Speichern:', error)
+                alert('❌ Fehler beim Speichern des Projekts!\n\n' + error.message)
+            }
+        }
+
+        function startTimer() {
+            const projectSelect = document.getElementById('projectSelect')
+            const selectedProject = projectSelect.value
+            
+            if (selectedProject === '') {
+                alert('Bitte wähle zuerst ein Projekt aus oder erstelle ein neues!')
+                return
+            }
+            
+            currentProject = selectedProject
+            startTime = Date.now() - elapsedTime
+            isRunning = true
+            isPaused = false
+            
+            timerInterval = setInterval(updateTimer, 100)
+            
+            document.getElementById('startBtn').style.display = 'none'
+            document.getElementById('pauseBtn').style.display = 'inline-block'
+            document.getElementById('stopBtn').disabled = false
+            document.getElementById('currentProject').innerHTML = currentProject + ' <span class="running-indicator"></span>'
+            document.getElementById('projectSelect').disabled = true
+        }
+
+        function pauseTimer() {
+            if (isPaused) {
+                startTime = Date.now() - elapsedTime
+                timerInterval = setInterval(updateTimer, 100)
+                isPaused = false
+                document.getElementById('pauseBtn').textContent = '⏸ Pause'
+            } else {
+                clearInterval(timerInterval)
+                isPaused = true
+                document.getElementById('pauseBtn').textContent = '▶ Fortsetzen'
+            }
+        }
+
+        async function stopTimer() {
+            clearInterval(timerInterval)
+            
+            if (elapsedTime > 0) {
+                const entry = {
+                    project: currentProject,
+                    startTime: new Date(Date.now() - elapsedTime),
+                    endTime: new Date(),
+                    duration: elapsedTime,
+                    description: ''
+                }
+                
+                try {
+                    await saveEntry(entry)
+                    await updateEntries()
+                    await updateStatistics()
+                } catch (error) {
+                    console.error('Fehler beim Speichern:', error)
+                    alert('❌ Fehler beim Speichern des Eintrags!\n\n' + error.message)
+                }
+            }
+            
+            elapsedTime = 0
+            isRunning = false
+            isPaused = false
+            currentProject = null
+            
+            document.getElementById('timerDisplay').textContent = '00:00:00'
+            document.getElementById('startBtn').style.display = 'inline-block'
+            document.getElementById('pauseBtn').style.display = 'none'
+            document.getElementById('stopBtn').disabled = true
+            document.getElementById('currentProject').textContent = 'Kein Projekt ausgewählt'
+            document.getElementById('projectSelect').disabled = false
+        }
+
+        function updateTimer() {
+            elapsedTime = Date.now() - startTime
+            const hours = Math.floor(elapsedTime / 3600000)
+            const minutes = Math.floor((elapsedTime % 3600000) / 60000)
+            const seconds = Math.floor((elapsedTime % 60000) / 1000)
+            
+            document.getElementById('timerDisplay').textContent = 
+                `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+        }
+
+        async function addManualEntry() {
+            const project = document.getElementById('manualProjectSelect').value
+            const date = document.getElementById('manualDate').value
+            const startTimeStr = document.getElementById('manualStartTime').value
+            const endTimeStr = document.getElementById('manualEndTime').value
+            const description = document.getElementById('manualDescription').value
+            
+            if (!project || !date || !startTimeStr || !endTimeStr) {
+                alert('Bitte fülle alle Pflichtfelder aus!')
+                return
+            }
+            
+            const start = new Date(`${date}T${startTimeStr}`)
+            const end = new Date(`${date}T${endTimeStr}`)
+            
+            if (end <= start) {
+                alert('Die Endzeit muss nach der Startzeit liegen!')
+                return
+            }
+            
+            const duration = end - start
+            
+            const entry = {
+                project: project,
+                startTime: start,
+                endTime: end,
+                duration: duration,
+                description: description
+            }
+            
+            try {
+                await saveEntry(entry)
+                
+                document.getElementById('manualStartTime').value = ''
+                document.getElementById('manualEndTime').value = ''
+                document.getElementById('manualDescription').value = ''
+                
+                await updateEntries()
+                await updateStatistics()
+                
+                alert('✅ Eintrag erfolgreich in Supabase gespeichert!')
+            } catch (error) {
+                console.error('Fehler beim Speichern:', error)
+                alert('❌ Fehler beim Speichern des Eintrags!\n\n' + error.message)
+            }
+        }
+
+        async function updateEntries() {
+            const entries = await loadEntries()
+            const entriesList = document.getElementById('entriesList')
+            
+            if (entries.length === 0) {
+                entriesList.innerHTML = '<p style="text-align:center; color:#999; padding:20px;">Noch keine Einträge vorhanden</p>'
+                return
+            }
+            
+            entriesList.innerHTML = entries.slice(0, 20).map(entry => {
+                const start = new Date(entry.start_time)
+                const duration = formatDuration(entry.duration)
+                
+                return `
+                    <div class="entry-item">
+                        <div class="entry-info">
+                            <h4>${entry.project}</h4>
+                            <p>${start.toLocaleDateString('de-DE')} ${start.toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'})}</p>
+                            ${entry.description ? `<p><em>${entry.description}</em></p>` : ''}
+                        </div>
+                        <div style="display: flex; align-items: center;">
+                            <div class="entry-duration">${duration}</div>
+                            <button class="delete-btn" onclick="deleteEntryById(${entry.id})">🗑️</button>
+                        </div>
+                    </div>
+                `
+            }).join('')
+        }
+
+        async function deleteEntryById(id) {
+            if (!confirm('Möchtest du diesen Eintrag wirklich löschen?')) return
+            
+            try {
+                await deleteEntry(id)
+                await updateEntries()
+                await updateStatistics()
+            } catch (error) {
+                console.error('Fehler beim Löschen:', error)
+                alert('❌ Fehler beim Löschen des Eintrags!\n\n' + error.message)
+            }
+        }
+
+        async function updateStatistics() {
+            const entries = await loadEntries()
+            const now = new Date()
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+            const weekStart = new Date(today)
+            weekStart.setDate(today.getDate() - today.getDay())
+            
+            let totalTime = 0
+            let todayTime = 0
+            let weekTime = 0
+            const projectTimes = {}
+            
+            entries.forEach(entry => {
+                const entryDate = new Date(entry.start_time)
+                totalTime += entry.duration
+                
+                if (entryDate >= today) {
+                    todayTime += entry.duration
+                }
+                
+                if (entryDate >= weekStart) {
+                    weekTime += entry.duration
+                }
+                
+                if (!projectTimes[entry.project]) {
+                    projectTimes[entry.project] = 0
+                }
+                projectTimes[entry.project] += entry.duration
+            })
+            
+            document.getElementById('totalHours').textContent = formatHours(totalTime)
+            document.getElementById('todayHours').textContent = formatHours(todayTime)
+            document.getElementById('weekHours').textContent = formatHours(weekTime)
+            
+            const projectStats = document.getElementById('projectStats')
+            const sortedProjects = Object.entries(projectTimes).sort((a, b) => b[1] - a[1])
+            
+            if (sortedProjects.length > 0) {
+                const maxTime = Math.max(...Object.values(projectTimes))
+                const colors = ['#3ecf8e', '#2d9f6f', '#f093fb', '#4facfe', '#43e97b', '#fa709a']
+                
+                projectStats.innerHTML = '<h3 style="margin-bottom: 15px;">Zeit pro Projekt</h3>' +
+                    sortedProjects.map(([project, time], index) => {
+                        const percentage = (time / maxTime) * 100
+                        const color = colors[index % colors.length]
+                        return `
+                            <div class="project-bar">
+                                <div class="project-bar-header">
+                                    <strong>${project}</strong>
+                                    <span>${formatHours(time)}</span>
+                                </div>
+                                <div class="project-bar-fill" style="width: ${percentage}%; background: ${color};">
+                                    ${Math.round(percentage)}%
+                                </div>
+                            </div>
+                        `
+                    }).join('')
+            } else {
+                projectStats.innerHTML = ''
+            }
+        }
+
+        function formatDuration(ms) {
+            const hours = Math.floor(ms / 3600000)
+            const minutes = Math.floor((ms % 3600000) / 60000)
+            return `${hours}h ${minutes}m`
+        }
+
+        function formatHours(ms) {
+            const hours = (ms / 3600000).toFixed(1)
+            return `${hours}h`
+        }
+
+        async function exportToCSV() {
+            const entries = await loadEntries()
+            
+            if (entries.length === 0) {
+                alert('Keine Daten zum Exportieren vorhanden!')
+                return
+            }
+            
+            let csv = 'Projekt,Datum,Startzeit,Endzeit,Dauer (Stunden),Beschreibung\n'
+            
+            entries.forEach(entry => {
+                const start = new Date(entry.start_time)
+                const end = new Date(entry.end_time)
+                const hours = (entry.duration / 3600000).toFixed(2)
+                
+                csv += `"${entry.project}",`
+                csv += `"${start.toLocaleDateString('de-DE')}",`
+                csv += `"${start.toLocaleTimeString('de-DE')}",`
+                csv += `"${end.toLocaleTimeString('de-DE')}",`
+                csv += `${hours},`
+                csv += `"${entry.description || ''}"\n`
+            })
+            
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+            const link = document.createElement('a')
+            link.href = URL.createObjectURL(blob)
+            link.download = `zeiterfassung_${new Date().toISOString().split('T')[0]}.csv`
+            link.click()
+        }
+
+        async function clearAllData() {
+            if (!confirm('ACHTUNG: Alle Daten in Supabase werden unwiderruflich gelöscht! Bist du sicher?')) return
+            if (!confirm('Letzte Chance! Wirklich alle Daten löschen?')) return
+            
+            try {
+                // Alle Einträge löschen
+                const { error: entriesError } = await window.supabase
+                    .from('entries')
+                    .delete()
+                    .neq('id', 0) // Löscht alle Zeilen
+                
+                if (entriesError) throw entriesError
+                
+                // Alle Projekte löschen
+                const { error: projectsError } = await window.supabase
+                    .from('projects')
+                    .delete()
+                    .neq('id', 0) // Löscht alle Zeilen
+                
+                if (projectsError) throw projectsError
+                
+                alert('✅ Alle Daten wurden aus Supabase gelöscht!')
+                await updateProjectSelects()
+                await updateEntries()
+                await updateStatistics()
+            } catch (error) {
+                console.error('Fehler beim Löschen:', error)
+                alert('❌ Fehler beim Löschen der Daten!\n\n' + error.message)
+            }
+        }
+    </script>
+</body>
+</html>
